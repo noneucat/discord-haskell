@@ -20,6 +20,7 @@ module Discord
   , stopDiscord
   , loginRest
   , loginRestGateway
+  , loginRestGatewaySharded
   ) where
 
 import Prelude hiding (log)
@@ -58,14 +59,19 @@ loginRest auth = do
                                            , ThreadRest restId
                                            ])
 
--- | Start HTTP rest handler and gateway background threads
+-- | Start HTTP rest handler and gateway background threads. 
 loginRestGateway :: Auth -> IO (RestChan, Gateway, [ThreadIdType])
-loginRestGateway auth = do
+loginRestGateway = loginRestGatewaySharded (0, 1)
+
+-- | Same as `loginRestGateway` but accepts a
+--   tuple representing the shard parameter for Identify.
+loginRestGatewaySharded :: (Int, Int) -> Auth -> IO (RestChan, Gateway, [ThreadIdType])
+loginRestGatewaySharded shard auth = do
   log <- newChan
   -- writeFile "the-log-of-discord-haskell.txt" ""
   logId <- forkIO (logger log False)
   (restHandler, restId) <- createHandler auth log
-  (gate, gateId) <- startGatewayThread auth log
+  (gate, gateId) <- startShardedGatewayThread shard auth log
   pure (restHandler, gate, [ ThreadLogger logId
                            , ThreadRest restId
                            , ThreadGateway gateId

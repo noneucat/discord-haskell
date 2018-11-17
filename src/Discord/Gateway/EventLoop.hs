@@ -42,9 +42,9 @@ data ConnLoopState = ConnStart
 connect :: (Connection -> IO a) -> IO a
 connect = runSecureClient "gateway.discord.gg" 443 "/?v=6&encoding=json"
 
-connectionLoop :: Auth -> Chan (Either GatewayException Event) -> Chan GatewaySendable
-                       -> Chan String -> IO ()
-connectionLoop auth events userSend log = loop ConnStart 0
+connectionLoopWithShard :: (Int, Int) -> Auth -> Chan (Either GatewayException Event) -> Chan GatewaySendable
+                        -> Chan String -> IO ()
+connectionLoopWithShard shard auth events userSend log = loop ConnStart 0
  where
   loop :: ConnLoopState -> Int -> IO ()
   loop s retries = do
@@ -57,7 +57,7 @@ connectionLoop auth events userSend log = loop ConnStart 0
             msg <- getPayload conn log
             case msg of
               Right (Hello interval) -> do
-                sendTextData conn (encode (Identify auth False 50 (0, 1)))
+                sendTextData conn (encode (Identify auth False 50 shard))
                 msg2 <- getPayload conn log
                 case msg2 of
                   Right (Dispatch r@(Ready _ _ _ _ seshID) _) -> do
